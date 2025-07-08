@@ -1,6 +1,6 @@
 {
-  "bb_sync_version":"1.0",
-  "name":"BBSigSigRealBot",
-  "csv_url":null,
-  "git_remote":"git@github.com:HyperGround/B1hijsobw"
+  "bb_sync_version": "1.0",
+  "name": "scalping-signal-bot",
+  "git_remote": "git@github.com:yourusername/scalping-signal-bot.git",
+  "csv_url": "null"
 }
