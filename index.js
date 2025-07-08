@@ -1,83 +1,63 @@
-// scalping-signal-bot/index.js
-import Bot from "bots.business";
-import axios from "axios";
-import { config, pairs, tfOptions } from "./config.js";
-import { getSignal } from "./strategy/scalpingStrategy.js";
-import { sendProfitAlert } from "./services/alerts.js";
+// index.js for Bots.Business
+bbLib.onCommand("start", (ctx) => {
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "XAUUSD", callback_data: "pair_XAUUSD" }],
+      [{ text: "EURUSD", callback_data: "pair_EURUSD" }],
+      [{ text: "ETHUSD", callback_data: "pair_ETHUSD" }],
+      [{ text: "JPYUSD", callback_data: "pair_JPYUSD" }]
+    ]
+  };
 
-const bot = new Bot();
-let userState = {};
-
-bot.on("start", async (msg) => {
-  const opts = pairs.map(p => [{ label: p, callback_data: `pair_${p}` }]);
-  await bot.sendInlineKeyboard(msg.chat.id, `👋 سڵاو، کەیسی شیکاری دیاری بکە:`, opts);
+  bbLib.sendMessage(ctx.chat.id, "👋 سڵاو، کەیسی شیکاری دیاری بکە:", {
+    reply_markup: keyboard
+  });
 });
 
-bot.onCallbackQuery(/^pair_(.*)/, async (query, match) => {
-  const pair = match[1];
-  userState[query.from.id] = { pair };
+bbLib.onCallback("pair_XAUUSD", (ctx) => handlePair(ctx, "XAUUSD"));
+bbLib.onCallback("pair_EURUSD", (ctx) => handlePair(ctx, "EURUSD"));
+bbLib.onCallback("pair_ETHUSD", (ctx) => handlePair(ctx, "ETHUSD"));
+bbLib.onCallback("pair_JPYUSD", (ctx) => handlePair(ctx, "JPYUSD"));
 
-  const tfOpts = tfOptions.map(tf => [{ label: tf, callback_data: `tf_${tf}` }]);
-  await bot.sendInlineKeyboard(query.message.chat.id, `⏱ تایمفرەیم دیاری بکە:`, tfOpts);
-});
+function handlePair(ctx, pair) {
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "1m", callback_data: `tf_${pair}_1m` }],
+      [{ text: "5m", callback_data: `tf_${pair}_5m` }],
+      [{ text: "15m", callback_data: `tf_${pair}_15m` }],
+      [{ text: "1h", callback_data: `tf_${pair}_1h` }],
+      [{ text: "4h", callback_data: `tf_${pair}_4h` }],
+      [{ text: "1d", callback_data: `tf_${pair}_1d` }],
+      [{ text: "1w", callback_data: `tf_${pair}_1w` }]
+    ]
+  };
 
-bot.onCallbackQuery(/^tf_(.*)/, async (query, match) => {
-  const tf = match[1];
-  const user = userState[query.from.id];
-  if (!user) return;
+  bbLib.sendMessage(ctx.chat.id, `⏱ تایمفرەیم بۆ ${pair} دیاری بکە:`, {
+    reply_markup: keyboard
+  });
+}
 
-  user.tf = tf;
-  bot.sendMessage(query.message.chat.id, `🔄 بەدواداچوون بۆ سیگناڵی بەهێز بۆ ${user.pair} لە تایم ${user.tf}`);
+const pairs = ["XAUUSD", "EURUSD", "ETHUSD", "JPYUSD"];
+const tfOptions = ["1m", "5m", "15m", "1h", "4h", "1d", "1w"];
 
-  startMonitoring(query.from.id, user.pair, user.tf);
-});
-
-async function startMonitoring(userId, symbol, tf) {
-  const interval = 60; // seconds
-
-  setInterval(async () => {
-    try {
-      const closes = await fetchCloses(symbol, tf);
-      const signal = getSignal(closes);
-
-      if (signal) {
-        const entry = closes[closes.length - 1];
+for (const pair of pairs) {
+  for (const tf of tfOptions) {
+    const callbackKey = `tf_${pair}_${tf}`;
+    bbLib.onCallback(callbackKey, (ctx) => {
+      bbLib.sendMessage(ctx.chat.id, `📡 شیکاری scalping بۆ ${pair} لە تایم ${tf} بە زووی دێت...`);
+      // Simulate signal (placeholder)
+      setTimeout(() => {
+        const entry = 2000.00;
         const sl = entry - 0.0020;
         const tp = entry + (entry - sl) * 3;
 
-        bot.sendMessage(userId, `✅ Entry: ${entry}
+        bbLib.sendMessage(ctx.chat.id,
+          `✅ Entry: ${entry.toFixed(4)}
 📉 SL: ${sl.toFixed(4)}
 📈 TP: ${tp.toFixed(4)}
-🪙 ${symbol}`);
-
-        watchProfit(userId, symbol, entry, tp, sl);
-      }
-    } catch (err) {
-      console.error("Signal error:", err.message);
-    }
-  }, interval * 1000);
-}
-
-async function fetchCloses(symbol, tf) {
-  const res = await axios.get(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=100`);
-  return res.data.map(c => parseFloat(c[4]));
-}
-
-function watchProfit(userId, symbol, entry, tp, sl) {
-  const check = setInterval(async () => {
-    try {
-      const price = await getCurrentPrice(symbol);
-      const gainRatio = (price - entry) / (entry - sl);
-
-      if (gainRatio >= 2) {
-        sendProfitAlert(bot, userId, symbol, entry, price);
-        clearInterval(check);
-      }
-    } catch {}
-  }, 10000);
-}
-
-async function getCurrentPrice(symbol) {
-  const res = await axios.get(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
-  return parseFloat(res.data.price);
+🪙 ${pair}`
+        );
+      }, 1500);
+    });
+  }
 }
